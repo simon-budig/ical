@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding:utf8 -*-
 
 # liest den Kalender von HaSi. Bei Fragen bitte an Simon wenden.
@@ -9,12 +9,12 @@
 # Wenn keine URLs zu icals angegeben werden dann wird die URL des
 # HaSi-Kalenders genutzt.
 
-import sys, StringIO, subprocess, re, urllib
+import sys, io, subprocess, re, urllib.request
 import datetime
 import dateutil.rrule, dateutil.parser, dateutil.tz
 import uuid
 
-default_url = "file:///home/simon/src/hacks/ical/basic.ics"
+default_url = "file:///home/simon/src/ical/basic.ics"
 default_url = "https://calendar.google.com/calendar/ical/bhj0m4hpsiqa8gpfdo8vb76p7k%40group.calendar.google.com/public/basic.ics"
 
 calendars = {}
@@ -30,7 +30,7 @@ def kramdown (input):
                          stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE)
-   out, err = p.communicate (input)
+   out, err = p.communicate (input.encode ('utf-8'))
    # ignoring errors here, might be a problem. But all entries are
    # concatenated so we can't pinpoint the errors to specific calendar entries
    return out
@@ -43,7 +43,7 @@ def simple_tzinfos (abbrev, offset):
    elif abbrev == "UTC" and offset == 0:
       return dateutil.tz.tzutc ()
    else:
-      print "simple_tzinfos:", abbrev, offset
+      print ("simple_tzinfos:", abbrev, offset)
    return 0
 
 
@@ -63,7 +63,7 @@ class Event (dict):
 
    def shortdesc (self):
       r = []
-      tim, evt = self.get_time()[0]
+      tim, evt = self.get_time ()[0]
 
       if evt["SUMMARY"]:
         r.append ("* __%s:__ <a name=\"summary-%s\" href=\"/calendar/#item-%s\">%s</a>" % (str (tim.strftime ("%d. %m. %Y")),
@@ -74,7 +74,7 @@ class Event (dict):
 
    def longdesc (self):
       r = []
-      tim, evt = self.get_time()[0]
+      tim, evt = self.get_time ()[0]
       if evt["SUMMARY"]:
          r.append ("## <a name=\"item-%s\" href=\"/calendar/#summary-%s\">%s</a>" % (evt["UID"], evt["UID"], evt["SUMMARY"]))
 
@@ -88,7 +88,7 @@ class Event (dict):
       if evt["URL"]:
          r.append ("_weitere Infos:_ [%s](%s)" % (evt["URL"], evt["URL"]))
 
-      pending = self.get_time()[1:]
+      pending = self.get_time ()[1:]
       if pending:
          r.append ("_Folgetermine:_ " +
                    ", ".join ([p[0].strftime ("%d. %m. %Y")
@@ -96,14 +96,14 @@ class Event (dict):
       return "\n\n".join (r) + "\n"
 
 
-   def __getitem__(self, key):
+   def __getitem__ (self, key):
       return super (Event, self).get (key, None)
 
 
-   def __setitem__(self, key, value):
+   def __setitem__ (self, key, value):
       rdict = { 'n' : "\n" }
       value = re.sub ("\\\\(.)",
-                      lambda x: rdict.get (x.group(1), x.group(1)), value)
+                      lambda x: rdict.get (x.group (1), x.group (1)), value)
       super (Event, self).__setitem__ (key, value)
 
 
@@ -130,18 +130,18 @@ class Event (dict):
 
 
    def get_time (self, times = []):
-      if self.has_key ("RECURRENCE-ID"):
+      if "RECURRENCE-ID" in self:
          rec = dateutil.parser.parse (self["RECURRENCE-ID"],
                                       tzinfos = simple_tzinfos)
          times = [t for t in times if t[0] != rec]
 
-      if self.has_key ("DTSTART") and self.has_key ("RRULE"):
+      if "DTSTART" in self and "RRULE" in self:
          rr = dateutil.rrule.rrulestr (self.rrtext, tzinfos = simple_tzinfos)
          pending = rr.between (now, now + datetime.timedelta (120))
          times = times + [ (p.astimezone (dateutil.tz.tzlocal ()), self)
                            for p in pending ]
 
-      elif self.has_key ("DTSTART"):
+      elif "DTSTART" in self:
          dts = dateutil.parser.parse (self["DTSTART"], tzinfos = simple_tzinfos)
          times = times + [ (dts.astimezone (dateutil.tz.tzlocal ()), self) ]
 
@@ -159,17 +159,19 @@ class Event (dict):
 
 
 
-class Calendar(object):
+class Calendar (object):
    def __init__ (self, url=None):
       if not url:
          url = default_url
 
       self.url = url
 
-      data = urllib.urlopen (self.url).read()
+      data = urllib.request.urlopen (self.url).read ()
+      data = data.decode ('utf-8')
 
       # normalize lineends
-      data = data.replace ("\r\n", "\n").replace ("\n\r", "\n")
+      data = data.replace ("\r\n", "\n")
+      data = data.replace ("\n\r", "\n")
       # ical continuation lines
       data = data.replace ("\n ", "")
 
@@ -198,10 +200,10 @@ class Calendar(object):
             raw_rrtext = raw_rrtext + "%s:%s\n" % (key, value)
 
          if key == "END" and value == "VEVENT":
-            if not cur_event.has_key ("UID"):
-               cur_event["UID"] = "%s" % uuid.uuid1()
+            if "UID" not in cur_event:
+               cur_event["UID"] = "%s" % uuid.uuid1 ()
             uid = cur_event["UID"]
-            if not self.eventdict.has_key (uid):
+            if uid not in self.eventdict:
                self.eventdict[uid] = []
             self.eventdict[uid].append (Event (cur_event))
             self.eventdict[uid][-1].rrtext = raw_rrtext
@@ -213,9 +215,8 @@ class Calendar(object):
 
       self.eventlist = []
 
-      for ev in self.eventdict.values ():
-         ev.sort ( lambda x, y: int (x.get ("SEQUENCE", "0")) -
-                                int (y.get ("SEQUENCE", "0")))
+      for id, ev in self.eventdict.items ():
+         ev.sort (key = lambda x: int (x.get ("SEQUENCE", "0")))
          ev[0].set_update_events (ev[1:])
          self.eventlist.append (ev[0])
 
@@ -223,24 +224,24 @@ class Calendar(object):
 
 
    def get_summary (self, limit=-1):
-      el = [ e for e in self.eventlist if e.is_pending() ]
+      el = [ e for e in self.eventlist if e.is_pending () ]
       if limit > 0:
          el = el[:limit]
-      summary  = "\n".join ([e.shortdesc() for e in el])
+      summary  = "\n".join ([e.shortdesc () for e in el])
       return kramdown (summary)
 
 
    def get_fulllist (self, limit=-1):
-      el = [ e for e in self.eventlist if e.is_pending() ]
+      el = [ e for e in self.eventlist if e.is_pending () ]
       if limit > 0:
          el = el[:limit]
-      summary  = "\n".join ([e.longdesc() for e in el])
+      summary  = "\n".join ([e.longdesc () for e in el])
       return kramdown (summary)
 
 
 
 if __name__ == '__main__':
-   c = Calendar()
-   print c.get_fulllist()
-   # print c.eventlist
+   c = Calendar ()
+   print (c.get_fulllist ())
+   # print (c.eventlist)
 
