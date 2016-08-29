@@ -33,7 +33,7 @@ def kramdown (input):
    out, err = p.communicate (input.encode ('utf-8'))
    # ignoring errors here, might be a problem. But all entries are
    # concatenated so we can't pinpoint the errors to specific calendar entries
-   return out
+   return out.decode ('utf-8')
 
 
 
