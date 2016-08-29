@@ -240,8 +240,46 @@ class Calendar (object):
 
 
 
+def ical_replace (m):
+   args   = m.group (2).split ()
+   format = "summary"
+   limit  = -1
+   url    = default_url
+
+   if len (args) >= 1:
+      if ":" in args[0]:
+         format, limit = args[0].split (":", 2)
+         limit = int (limit)
+      else:
+         format = args[0]
+
+   if len (args) >= 2:
+      url = args[1]
+
+   if not calendars.has_key (url):
+      calendars[url] = Calendar(url)
+
+   if format == "full":
+      txtdata = calendars[url].get_fulllist (limit)
+   else:
+      txtdata = calendars[url].get_summary (limit)
+
+   return m.group(1) + txtdata + m.group(3)
+
+
+
 if __name__ == '__main__':
-   c = Calendar ()
-   print (c.get_fulllist ())
-   # print (c.eventlist)
+   if not sys.argv[1:]:
+      c = Calendar ()
+      print (c.get_fulllist ())
+
+   for f in sys.argv[1:]:
+      data = open (f).read ()
+      data2 = re.sub (r'(?ims)(<!--\s*ical\b\s*(.*?)\s*-->).*?(<!--\s*/ical\s*-->)',
+                      ical_replace, data)
+
+      if data2 != data:
+         outf = open (f, "w")
+         outf.write (data2)
+         outf.close ()
 
