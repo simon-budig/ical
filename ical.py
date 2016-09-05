@@ -18,6 +18,29 @@ default_url = "file:///home/simon/src/ical/basic.ics"
 default_url = "https://calendar.google.com/calendar/ical/bhj0m4hpsiqa8gpfdo8vb76p7k%40group.calendar.google.com/public/basic.ics"
 default_url = "https://cloud.hackspace-siegen.de/calendar/hasi/master/"
 
+hasi_format = """\
+<div class="event">
+  <div class="date" class="center">
+    <span class="center">
+      <span class="bubble-event-day">{datetime:%a}</span>
+      <span class="bubble-event-date">{datetime:%d.%m.}</span>
+    </span>
+  </div>
+  {image:<div class="event-image" style="background-image: url(%s)"></div>}
+  <div class="event-main">
+    {summary:<h2>%s</h2>}
+    <p class="event-time-place">
+      <i class="fa fa-clock-o event-icon"></i> {datetime:%Y-%m-%d %H:%M}
+      {location:<br><i class="fa fa-map-marker event-icon"></i> %s}
+    </p>
+    {description:<p>%s</p>}
+    {follow_ups:<p><em>Folgetermine:</em> %s</p>}
+  </div>
+</div>
+"""
+
+
+
 calendars = {}
 
 # figure out the day start in local time
@@ -47,6 +70,14 @@ def simple_tzinfos (abbrev, offset):
       print ("simple_tzinfos:", abbrev, offset)
    return 0
 
+
+
+class FmtString (str):
+   def __format__ (self, format_spec):
+      if not self:
+         return self
+      if format_spec != None:
+         return format_spec % self
 
 
 class Event (dict):
@@ -102,7 +133,28 @@ class Event (dict):
 
 
    def __getitem__ (self, key):
-      return super (Event, self).get (key, None)
+      val = super (Event, self).get (key, None)
+      if val == None:
+         tim, evt = self.get_time ()[0]
+         if key == 'datetime':
+            val = tim
+         elif key == 'summary':
+            val = FmtString (evt["SUMMARY"])
+         elif key == 'description':
+            val = FmtString (evt["DESCRIPTION"])
+         elif key == 'location':
+            val = FmtString (evt["LOCATION"])
+         elif key == 'image':
+            val = FmtString ("")
+         elif key == 'follow_ups':
+            val = ""
+            pending = self.get_time ()[1:]
+            if pending:
+               val = ", ".join ([p[0].strftime ("%d. %m. %Y")
+                                 for p in pending[:3]]) + [".", "…"][len (pending) > 3]
+            val = FmtString (val)
+
+      return val
 
 
    def __setitem__ (self, key, value):
@@ -124,6 +176,7 @@ class Event (dict):
          return False
       else:
          return False
+
 
    def is_pending (self):
       owntimes = self.get_time ()
@@ -249,6 +302,14 @@ class Calendar (object):
       return kramdown (summary)
 
 
+   def get_formatted (self, template, limit=-1):
+      el = [ e for e in self.eventlist if e.is_pending () ]
+      if limit > 0:
+         el = el[:limit]
+      text  = "\n".join ([template.format_map (e) for e in el])
+      return text
+
+
 
 def ical_replace (m):
    args   = m.group (2).split ()
@@ -281,7 +342,8 @@ def ical_replace (m):
 if __name__ == '__main__':
    if not sys.argv[1:]:
       c = Calendar ()
-      print (c.get_fulllist ())
+      # print (c.get_fulllist ())
+      print (c.get_formatted (hasi_format))
 
    for f in sys.argv[1:]:
       data = open (f).read ()
