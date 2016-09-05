@@ -16,6 +16,7 @@ import uuid
 
 default_url = "file:///home/simon/src/ical/basic.ics"
 default_url = "https://calendar.google.com/calendar/ical/bhj0m4hpsiqa8gpfdo8vb76p7k%40group.calendar.google.com/public/basic.ics"
+default_url = "https://cloud.hackspace-siegen.de/calendar/hasi/master/"
 
 calendars = {}
 
@@ -94,6 +95,10 @@ class Event (dict):
                    ", ".join ([p[0].strftime ("%d. %m. %Y")
                               for p in pending[:3]]) + [".", "…"][len (pending) > 3])
       return "\n\n".join (r) + "\n"
+
+
+   def get_ical (self, filter=None):
+      pass
 
 
    def __getitem__ (self, key):
@@ -179,6 +184,7 @@ class Calendar (object):
 
       self.eventdict = {}
       cur_event = None
+      inhibit = None
       raw_rrtext = ""
 
       for l in lines:
@@ -195,6 +201,8 @@ class Calendar (object):
             cur_event = {}
             raw_rrtext = ""
             continue
+         elif key == "BEGIN":
+            inhibit = value
 
          if key in ["RRULE", "RRULE", "RDATE", "EXRULE", "EXDATE", "DTSTART"]:
             raw_rrtext = raw_rrtext + "%s:%s\n" % (key, value)
@@ -209,8 +217,10 @@ class Calendar (object):
             self.eventdict[uid][-1].rrtext = raw_rrtext
             cur_event = None
             continue
+         elif key == "END" and value == inhibit:
+            inhibit = None
 
-         if cur_event != None:
+         if cur_event != None and inhibit != None:
             cur_event[key] = value
 
       self.eventlist = []
