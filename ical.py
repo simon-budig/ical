@@ -13,6 +13,7 @@ import sys, io, subprocess, re, urllib.request
 import datetime
 import dateutil.rrule, dateutil.parser, dateutil.tz
 import uuid
+import cgi, markdown
 
 default_url = "file:///home/simon/src/ical/basic.ics"
 default_url = "https://calendar.google.com/calendar/ical/bhj0m4hpsiqa8gpfdo8vb76p7k%40group.calendar.google.com/public/basic.ics"
@@ -28,15 +29,15 @@ hasi_format = """\
   </div>
   {image:<div class="event-image" style="background-image: url(%s)"></div>}
   <div class="event-main">
-    {summary:<h2>%s</h2>}
+    {summary:html:<h2>%s</h2>}
     <p class="event-time-place">
       <i class="fa fa-clock-o event-icon"></i> {datetime:%Y-%m-%d %H:%M}
-      {location:<br><i class="fa fa-map-marker event-icon"></i> %s}
+      {location:html:<br><i class="fa fa-map-marker event-icon"></i> %s}
     </p>
-    {description:<p>%s</p>}
-    {follow_ups:<p><em>Folgetermine:</em> %s</p>}
+    {description:md:%s}
+    {follow_ups:html:<p><em>Folgetermine:</em> %s</p>}
   </div>
-</div>
+</div>\
 """
 
 
@@ -77,7 +78,13 @@ class FmtString (str):
       if not self:
          return self
       if format_spec != None:
-         return format_spec % self
+         if format_spec[:5] == "html:":
+            return format_spec[5:] % cgi.escape (self)
+         elif format_spec[:3] == "md:":
+            return format_spec[3:] % markdown.markdown (self, safe_mode="escape")
+         else:
+            return format_spec % self
+      return self
 
 
 class Event (dict):
