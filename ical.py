@@ -75,16 +75,16 @@ def simple_tzinfos (abbrev, offset):
 
 class FmtString (str):
    def __format__ (self, format_spec):
-      if not self:
+      if not self or not format_spec:
          return self
-      if format_spec != None:
-         if format_spec[:5] == "html:":
-            return format_spec[5:] % cgi.escape (self)
-         elif format_spec[:3] == "md:":
-            return format_spec[3:] % markdown.markdown (self, safe_mode="escape")
-         else:
-            return format_spec % self
-      return self
+
+      if format_spec[:5] == "html:":
+         return format_spec[5:] % cgi.escape (self)
+      elif format_spec[:3] == "md:":
+         return format_spec[3:] % markdown.markdown (self, safe_mode="escape")
+      else:
+         return format_spec % self
+
 
 
 class Event (dict):
