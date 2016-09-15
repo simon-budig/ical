@@ -41,6 +41,22 @@ hasi_format = """\
 """
 
 
+shortdesc_markdown_format = """\
+* __{datetime:%d. %m. %Y}__ <a name="summary-{uid:%s}" href="/calendar/#item-{uid:%s}">{summary:%s}</a>
+"""
+
+longdesc_markdown_format = """\
+## <a name="item-{uid:%s}" href="/calendar/#summary-{uid:%s}">{summary:html:%s}</a>
+
+{datetime:__%d. %m. %Y, %H:%M Uhr__}
+
+{description:%s}
+
+{location:_Ort:_ %s}
+
+{follow_ups:_Folgetermine:_ %s}
+
+"""
 
 calendars = {}
 
@@ -48,17 +64,6 @@ calendars = {}
 now = datetime.datetime.now (dateutil.tz.tzlocal ())
 now = now.replace (hour=0, minute=0, second=0, microsecond=0)
 now = now.astimezone (dateutil.tz.tzutc ())
-
-
-def kramdown (input):
-   p = subprocess.Popen ("kramdown",
-                         stdin=subprocess.PIPE,
-                         stdout=subprocess.PIPE,
-                         stderr=subprocess.PIPE)
-   out, err = p.communicate (input.encode ('utf-8'))
-   # ignoring errors here, might be a problem. But all entries are
-   # concatenated so we can't pinpoint the errors to specific calendar entries
-   return out.decode ('utf-8')
 
 
 
@@ -100,41 +105,6 @@ class Event (dict):
          self.upd.set_update_events (updates[1:])
 
 
-   def shortdesc (self):
-      r = []
-      tim, evt = self.get_time ()[0]
-
-      if evt["SUMMARY"]:
-        r.append ("* __%s:__ <a name=\"summary-%s\" href=\"/calendar/#item-%s\">%s</a>" % (str (tim.strftime ("%d. %m. %Y")),
-                                                                                        evt["UID"], evt["UID"], evt["SUMMARY"]))
-
-      return "\n\n".join (r) + "\n"
-
-
-   def longdesc (self):
-      r = []
-      tim, evt = self.get_time ()[0]
-      if evt["SUMMARY"]:
-         r.append ("## <a name=\"item-%s\" href=\"/calendar/#summary-%s\">%s</a>" % (evt["UID"], evt["UID"], evt["SUMMARY"]))
-
-      r.append (str (tim.strftime ("__%d. %m. %Y, %H:%M Uhr__")) + "\n")
-      if evt["DESCRIPTION"]:
-         r.append (evt["DESCRIPTION"] + "\n")
-
-      if evt["LOCATION"]:
-         r.append ("_Ort:_ " + evt["LOCATION"])
-
-      if evt["URL"]:
-         r.append ("_weitere Infos:_ [%s](%s)" % (evt["URL"], evt["URL"]))
-
-      pending = self.get_time ()[1:]
-      if pending:
-         r.append ("_Folgetermine:_ " +
-                   ", ".join ([p[0].strftime ("%d. %m. %Y")
-                              for p in pending[:3]]) + [".", "…"][len (pending) > 3])
-      return "\n\n".join (r) + "\n"
-
-
    def get_ical (self, filter=None):
       pass
 
@@ -145,6 +115,8 @@ class Event (dict):
          tim, evt = self.get_time ()[0]
          if key == 'datetime':
             val = tim
+         elif key == 'uid':
+            val = FmtString (evt["UID"])
          elif key == 'summary':
             val = FmtString (evt["SUMMARY"])
          elif key == 'description':
@@ -293,22 +265,6 @@ class Calendar (object):
       self.eventlist.sort ()
 
 
-   def get_summary (self, limit=-1):
-      el = [ e for e in self.eventlist if e.is_pending () ]
-      if limit > 0:
-         el = el[:limit]
-      summary  = "\n".join ([e.shortdesc () for e in el])
-      return kramdown (summary)
-
-
-   def get_fulllist (self, limit=-1):
-      el = [ e for e in self.eventlist if e.is_pending () ]
-      if limit > 0:
-         el = el[:limit]
-      summary  = "\n".join ([e.longdesc () for e in el])
-      return kramdown (summary)
-
-
    def get_formatted (self, template, limit=-1):
       el = [ e for e in self.eventlist if e.is_pending () ]
       if limit > 0:
@@ -338,9 +294,11 @@ def ical_replace (m):
       calendars[url] = Calendar(url)
 
    if format == "full":
-      txtdata = calendars[url].get_fulllist (limit)
+      txtdata = calendars[url].get_formatted (longdesc_markdown_format, limit)
    else:
-      txtdata = calendars[url].get_summary (limit)
+      txtdata = calendars[url].get_formatted (shortdesc_markdown_format, limit)
+
+   txtdata = markdown.markdown (txtdata)
 
    return m.group(1) + txtdata + m.group(3)
 
@@ -349,7 +307,7 @@ def ical_replace (m):
 if __name__ == '__main__':
    if not sys.argv[1:]:
       c = Calendar ()
-      # print (c.get_fulllist ())
+      # print (markdown.markdown (c.get_formatted (shortdesc_markdown_format)))
       print (c.get_formatted (hasi_format))
 
    for f in sys.argv[1:]:
