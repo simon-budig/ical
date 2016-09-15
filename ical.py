@@ -264,7 +264,7 @@ class Calendar (object):
          elif key == "BEGIN":
             inhibit = value
 
-         if key in ["RRULE", "RRULE", "RDATE", "EXRULE", "EXDATE", "DTSTART"]:
+         if inhibit == None and key in ["RRULE", "RRULE", "RDATE", "EXRULE", "EXDATE", "DTSTART"]:
             raw_rrtext = raw_rrtext + "%s:%s\n" % (key, value)
 
          if key == "END" and value == "VEVENT":
@@ -280,7 +280,7 @@ class Calendar (object):
          elif key == "END" and value == inhibit:
             inhibit = None
 
-         if cur_event != None and inhibit != None:
+         if inhibit == None and cur_event != None:
             cur_event[key] = value
 
       self.eventlist = []
