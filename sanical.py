@@ -4,7 +4,7 @@ import sys, getopt
 import datetime
 import vobject
 
-def do_sanitize (filename, category=None):
+def do_sanitize (filename, outfile=None, category=None):
    f = open (filename)
    cal = vobject.readOne (f)
    f.close ()
@@ -53,19 +53,32 @@ def do_sanitize (filename, category=None):
 
          ev.categories.value = cats
 
-   cal.prettyPrint()
+   if outfile:
+      f = open (outfile, "w")
+      f.write (cal.serialize ())
+      f.close ()
+   else:
+      print (cal.serialize ())
 
 
 if __name__ == '__main__':
    optlist, args = getopt.getopt (sys.argv[1:],
-                                  'c:', ['category='])
+                                  'c:o:i', ['category=', 'outfile=', 'inplace'])
 
    category = None
+   outfile = None
+   inplace = False
 
    for k, v in optlist:
       if k in ["--category", "-c"]:
          category = v
+      elif k in ["--outfile", "-o"]:
+         outfile = v
+      elif k in ["--inplace", "-i"]:
+         inplace = True
 
    for i in args:
-      do_sanitize (i, category)
+      if inplace:
+         outfile = i
+      do_sanitize (i, outfile, category)
 
