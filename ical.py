@@ -13,7 +13,7 @@ import sys, io, subprocess, re, urllib.request
 import datetime
 import dateutil.rrule, dateutil.parser, dateutil.tz
 import uuid
-import cgi, markdown
+import html, markdown
 
 default_url = "file:///home/simon/src/ical/basic.ics"
 default_url = "https://calendar.google.com/calendar/ical/bhj0m4hpsiqa8gpfdo8vb76p7k%40group.calendar.google.com/public/basic.ics"
@@ -84,7 +84,7 @@ class FmtString (str):
          return self
 
       if format_spec[:5] == "html:":
-         return format_spec[5:] % cgi.escape (self)
+          return format_spec[5:] % html.escape (self)
       elif format_spec[:3] == "md:":
          return format_spec[3:] % markdown.markdown (self, safe_mode="escape")
       else:
@@ -120,9 +120,15 @@ class Event (dict):
          elif key == 'summary':
             val = FmtString (evt["SUMMARY"])
          elif key == 'description':
-            val = FmtString (evt["DESCRIPTION"])
+            if evt["DESCRIPTION"]:
+               val = FmtString (evt["DESCRIPTION"])
+            else:
+               val = FmtString ("")
          elif key == 'location':
-            val = FmtString (evt["LOCATION"])
+            if evt["LOCATION"]:
+               val = FmtString (evt["LOCATION"])
+            else:
+               val = FmtString ("")
          elif key == 'image':
             val = FmtString ("")
          elif key == 'follow_ups':
@@ -290,7 +296,7 @@ def ical_replace (m):
    if len (args) >= 2:
       url = args[1]
 
-   if not calendars.has_key (url):
+   if not url in calendars:
       calendars[url] = Calendar(url)
 
    if format == "full":
