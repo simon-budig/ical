@@ -15,9 +15,23 @@ def do_sanitize (filename, outfile=None, category=None):
       except AttributeError:
          pass
 
+      try:
+         del ev.attendee_list
+      except AttributeError:
+         pass
+
       blacklist = ['X-APPLE-STRUCTURED-LOCATION',
                    'X-APPLE-TRAVEL-ADVISORY-BEHAVIOR',
-                   'X-LIC-ERROR']
+                   'X-BUSYMAC-LASTMODBY',
+                   'X-LIC-ERROR',
+                   'X-MICROSOFT-CDO-APPT-SEQUENCE',
+                   'X-MICROSOFT-CDO-ALLDAYEVENT',
+                   'X-MICROSOFT-CDO-BUSYSTATUS',
+                   'X-MICROSOFT-CDO-IMPORTANCE',
+                   'X-MICROSOFT-CDO-INSTTYPE',
+                   'X-MICROSOFT-CDO-INTENDEDSTATUS',
+                   'X-MICROSOFT-CDO-OWNERAPPTID',
+                   'X-MICROSOFT-DISALLOW-COUNTER']
 
       to_delete = [c for c in ev.getChildren() if c.name in blacklist]
       for c in to_delete:
