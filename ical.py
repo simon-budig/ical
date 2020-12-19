@@ -13,25 +13,33 @@ import sys, io, subprocess, re, urllib.request
 import datetime
 import dateutil.rrule, dateutil.parser, dateutil.tz
 import uuid
-import html, markdown
+import html, markdown, json
 
 default_url = "file:///home/simon/src/ical/basic.ics"
 default_url = "https://calendar.google.com/calendar/ical/bhj0m4hpsiqa8gpfdo8vb76p7k%40group.calendar.google.com/public/basic.ics"
 default_url = "https://cloud.hackspace-siegen.de/calendar/hasi/master/"
 
+json_format = """\
+   {{
+      "start": "{start_datetime:%Y-%m-%dT%H:%M:%S}",
+      "end": "{end_datetime:%Y-%m-%dT%H:%M:%S}",
+      "title": {summary:json:%s}
+   }},\
+"""
+
 hasi_format = """\
 <div class="event">
   <div class="date" class="center">
     <span class="center">
-      <span class="bubble-event-day">{datetime:%a}</span>
-      <span class="bubble-event-date">{datetime:%d.%m.}</span>
+      <span class="bubble-event-day">{start_datetime:%a}</span>
+      <span class="bubble-event-date">{start_datetime:%d.%m.}</span>
     </span>
   </div>
   {image:<div class="event-image" style="background-image: url(%s)"></div>}
   <div class="event-main">
     {summary:html:<h2>%s</h2>}
     <p class="event-time-place">
-      <i class="fa fa-clock-o event-icon"></i> {datetime:%Y-%m-%d %H:%M}
+      <i class="fa fa-clock-o event-icon"></i> {start_datetime:%Y-%m-%d %H:%M}
       {location:html:<br><i class="fa fa-map-marker event-icon"></i> %s}
     </p>
     {description:md:%s}
@@ -42,13 +50,13 @@ hasi_format = """\
 
 
 shortdesc_markdown_format = """\
-* __{datetime:%d. %m. %Y}__ <a name="summary-{uid:%s}" href="/calendar/#item-{uid:%s}">{summary:%s}</a>
+* __{start_datetime:%d. %m. %Y}__ <a name="summary-{uid:%s}" href="/calendar/#item-{uid:%s}">{summary:%s}</a>
 """
 
 longdesc_markdown_format = """\
 ## <a name="item-{uid:%s}" href="/calendar/#summary-{uid:%s}">{summary:html:%s}</a>
 
-{datetime:__%d. %m. %Y, %H:%M Uhr__}
+{start_datetime:__%d. %m. %Y, %H:%M Uhr__}
 
 {description:%s}
 
@@ -87,6 +95,8 @@ class FmtString (str):
           return format_spec[5:] % html.escape (self)
       elif format_spec[:3] == "md:":
          return format_spec[3:] % markdown.markdown (self, safe_mode="escape")
+      elif format_spec[:5] == "json:":
+         return format_spec[5:] % json.dumps (self)
       else:
          return format_spec % self
 
@@ -113,8 +123,12 @@ class Event (dict):
       val = super (Event, self).get (key, None)
       if val == None:
          tim, evt = self.get_time ()[0]
-         if key == 'datetime':
+         if key == 'start_datetime':
             val = tim
+         elif key == 'end_datetime':
+            val = tim + self.get_duration()
+         elif key == 'duration':
+            val = self.get_duration()
          elif key == 'uid':
             val = FmtString (evt["UID"])
          elif key == 'summary':
@@ -170,6 +184,24 @@ class Event (dict):
          return now < self.get_time ()[0][0]
       else:
          return False
+
+
+   def is_ongoing (self):
+      owntimes = self.get_time ()
+
+      if len (owntimes):
+         return now >= self.get_time ()[0][0] and now <= self.get_time ()[0][0] + self.get_duration ()
+      else:
+         return False
+
+
+   def get_duration (self):
+      if "DTSTART" in self and "DTEND" in self:
+         dts = dateutil.parser.parse (self["DTSTART"], tzinfos = simple_tzinfos)
+         dte = dateutil.parser.parse (self["DTEND"], tzinfos = simple_tzinfos)
+         return dte - dts
+
+      return datetime.timedelta (0)
 
 
    def get_time (self, times = []):
@@ -272,7 +304,7 @@ class Calendar (object):
 
 
    def get_formatted (self, template, limit=-1):
-      el = [ e for e in self.eventlist if e.is_pending () ]
+      el = [ e for e in self.eventlist if e.is_pending () or e.is_ongoing () ]
       if limit > 0:
          el = el[:limit]
       text  = "\n".join ([template.format_map (e) for e in el])
@@ -315,6 +347,7 @@ if __name__ == '__main__':
       c = Calendar ()
       # print (markdown.markdown (c.get_formatted (shortdesc_markdown_format)))
       print (c.get_formatted (hasi_format))
+      # print ("[\n%s\n]" % c.get_formatted (json_format)[:-1])
 
    for f in sys.argv[1:]:
       data = open (f).read ()
