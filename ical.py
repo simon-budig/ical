@@ -94,7 +94,7 @@ class FmtString (str):
       if format_spec[:5] == "html:":
           return format_spec[5:] % html.escape (self)
       elif format_spec[:3] == "md:":
-         return format_spec[3:] % markdown.markdown (self, safe_mode="escape")
+         return format_spec[3:] % markdown.markdown (self, extensions=['tables'], safe_mode="escape")
       elif format_spec[:5] == "json:":
          return format_spec[5:] % json.dumps (self)
       else:
@@ -336,7 +336,7 @@ def ical_replace (m):
    else:
       txtdata = calendars[url].get_formatted (shortdesc_markdown_format, limit)
 
-   txtdata = markdown.markdown (txtdata)
+   txtdata = markdown.markdown (txtdata, extensions=['tables'])
 
    return m.group(1) + txtdata + m.group(3)
 
@@ -345,7 +345,7 @@ def ical_replace (m):
 if __name__ == '__main__':
    if not sys.argv[1:]:
       c = Calendar ()
-      # print (markdown.markdown (c.get_formatted (shortdesc_markdown_format)))
+      # print (markdown.markdown (c.get_formatted (shortdesc_markdown_format), extensions=['tables']))
       print (c.get_formatted (hasi_format))
       # print ("[\n%s\n]" % c.get_formatted (json_format)[:-1])
 
