@@ -38,6 +38,11 @@ def do_sanitize (filename, outfile=None, category=None):
          ev.remove (c)
 
       try:
+         del ev.description.params["ALTREP"]
+      except (KeyError, AttributeError):
+         pass
+
+      try:
          startdate = ev.dtstart.value
          enddate   = ev.dtend.value
          delta = datetime.timedelta (days=1)
