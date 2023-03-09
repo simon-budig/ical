@@ -123,6 +123,11 @@ class Event (dict):
       val = super (Event, self).get (key, None)
       if val == None:
          tim, evt = self.get_time ()[0]
+         if evt["CLASS"] and evt["CLASS"] in ["PRIVATE", "CONFIDENTIAL"]:
+            priv = True
+         else:
+            priv = False
+
          if key == 'start_datetime':
             val = tim
          elif key == 'end_datetime':
@@ -133,9 +138,13 @@ class Event (dict):
             val = FmtString (evt["UID"])
          elif key == 'summary':
             val = FmtString (evt["SUMMARY"])
+            if priv:
+               val = FmtString ("Private Veranstaltung")
          elif key == 'description':
             if evt["DESCRIPTION"]:
                val = FmtString (evt["DESCRIPTION"])
+               if priv:
+                  val = FmtString ("Private Veranstaltung. Für Details wenden Sie sich an das HaSi ihres Vertrauens.")
             else:
                val = FmtString ("")
          elif key == 'location':
