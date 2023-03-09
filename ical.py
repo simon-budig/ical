@@ -123,7 +123,8 @@ class Event (dict):
       val = super (Event, self).get (key, None)
       if val == None:
          tim, evt = self.get_time ()[0]
-         if evt["CLASS"] and evt["CLASS"] in ["PRIVATE", "CONFIDENTIAL"]:
+         cls = super (Event, self).get ("CLASS", None)
+         if cls in ["PRIVATE", "CONFIDENTIAL"]:
             priv = True
          else:
             priv = False
