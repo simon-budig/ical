@@ -48,10 +48,12 @@ hasi_format = """\
 </div>\
 """
 
-
 shortdesc_markdown_format = """\
 * __{start_datetime:%d. %m. %Y}__ <a name="summary-{uid:%s}" href="/calendar/#item-{uid:%s}">{summary:%s}</a>
 """
+
+shortdesc_gemtext_format = """\
+* {start_datetime:%d. %m. %Y} {summary:gemtext:%s}"""
 
 longdesc_markdown_format = """\
 ## <a name="item-{uid:%s}" href="/calendar/#summary-{uid:%s}">{summary:html:%s}</a>
@@ -65,6 +67,17 @@ longdesc_markdown_format = """\
 {follow_ups:_Folgetermine:_ %s}
 
 """
+
+longdesc_gemtext_format = """\
+### {summary:gemtext:%s}
+{start_datetime:%d. %m. %Y, %H:%M Uhr}
+
+{description:%s}
+
+{location:Ort: %s}
+{follow_ups:Folgetermine: %s}
+"""
+
 
 calendars = {}
 
@@ -92,9 +105,11 @@ class FmtString (str):
          return self
 
       if format_spec[:5] == "html:":
-          return format_spec[5:] % html.escape (self)
+         return format_spec[5:] % html.escape (self)
       elif format_spec[:3] == "md:":
          return format_spec[3:] % markdown.markdown (self, extensions=['tables'], safe_mode="escape")
+      elif format_spec[:8] == "gemtext:":
+         return (format_spec[8:] % self)
       elif format_spec[:5] == "json:":
          return format_spec[5:] % json.dumps (self)
       else:
@@ -343,13 +358,21 @@ def ical_replace (m):
 
    if format == "full":
       txtdata = calendars[url].get_formatted (longdesc_markdown_format, limit)
-   else:
+   elif format == "summary":
       txtdata = calendars[url].get_formatted (shortdesc_markdown_format, limit)
+   elif format == "fullgemtext":
+      txtdata = calendars[url].get_formatted (longdesc_gemtext_format, limit)
+   elif format == "summarygemtext":
+      txtdata = calendars[url].get_formatted (shortdesc_gemtext_format, limit)
+   else:
+       # default summary
+       txtdata = calendars[url].get_formatted (shortdesc_markdown_format, limit)
 
-   txtdata = markdown.markdown (txtdata, extensions=['tables'])
-
-   return m.group(1) + txtdata + m.group(3)
-
+   if not "gemtext" in format:
+      txtdata = markdown.markdown (txtdata, extensions=['tables'])
+      return m.group(1) + txtdata + m.group(3)
+   else:
+      return re.sub(r'\n\n\n*', r'\n\n', txtdata)
 
 
 if __name__ == '__main__':
